@@ -38,27 +38,5 @@ namespace JobApplication.Application.Services
 
             return job.Id; 
         }
-
-        public async Task CloseAsync(int id)
-        {
-            var userId = _currentUser.UserId
-                ?? throw new UnauthorizedException("User is not authenticated.");
-
-            var job = await _jobRepository.GetByIdAsync(id)
-                ?? throw new NotFoundException($"Job {id} was not found.");
-
-            if (job.RecruiterId != userId)
-                throw new ForbiddenException("Only the recruiter who owns this job can close it.");
-
-            if (job.ClosedAt.HasValue)
-                throw new ConflictException("Job is already closed.");
-
-            job.IsActive = false;
-            job.ClosedAt = _timeProvider.GetUtcNow().UtcDateTime;
-            job.ClosedBy = userId;
-
-            _jobRepository.Update(job);
-            await _jobRepository.SaveChangesAsync();
-        }
     }
 }

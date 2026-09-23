@@ -1,6 +1,7 @@
 
 using JobApplication.API.Middleware;
 using JobApplication.API.Services;
+using JobApplication.Application.Features.Jobs.Commands.CloseJob;
 using JobApplication.Application.Interfaces;
 using JobApplication.Application.Services;
 using JobApplication.Infrastructure.Email;
@@ -38,6 +39,8 @@ namespace JobApplication.API
                 options.UseSqlServer(connectionString));
 
             builder.Services.AddScoped<JobService>();
+            builder.Services.AddMediatR(cfg =>
+                cfg.RegisterServicesFromAssemblyContaining<CloseJobCommand>());
             builder.Services.AddScoped<IJobRepository, JobRepository>();
 
             // Options (secrets come from User Secrets / environment variables, never from source control).
