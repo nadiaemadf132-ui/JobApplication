@@ -13,5 +13,8 @@ namespace JobApplication.Domain.Entities
         public string RecruiterId { get; set; }
         public DateTime? ClosedAt { get; set; }
         public string? ClosedBy { get; set; }
+        public DateTime ExpiryDate { get; set; }
+
+        public ICollection<JobCandidateApplication> Applications { get; set; } = new List<JobCandidateApplication>();
     }
 }

@@ -31,7 +31,8 @@ namespace JobApplication.Application.Services
                 Title = createJobDto.Title,
                 Description = createJobDto.Description,
                 IsActive = true,
-                RecruiterId = recruiterId
+                RecruiterId = recruiterId,
+                ExpiryDate = createJobDto.ExpiryDate
             };
             await _jobRepository.InsertAsync(job);
             await _jobRepository.SaveChangesAsync();

@@ -26,6 +26,7 @@ namespace JobApplication.Infrastructure.Persistence
                 job.Property(j => j.RecruiterId).HasMaxLength(450);
                 job.Property(j => j.ClosedBy).HasMaxLength(450);
                 job.HasIndex(j => j.RecruiterId);
+                job.HasIndex(j => new { j.IsActive, j.ExpiryDate });
             });
 
             builder.Entity<RefreshToken>(token =>

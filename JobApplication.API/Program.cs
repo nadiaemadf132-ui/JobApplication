@@ -1,14 +1,18 @@
 
+using Hangfire;
 using JobApplication.API.Middleware;
 using JobApplication.API.Services;
+using JobApplication.Application.Features.Jobs.Commands.CloseExpiredJobs;
 using JobApplication.Application.Features.Jobs.Commands.CloseJob;
 using JobApplication.Application.Interfaces;
 using JobApplication.Application.Services;
 using JobApplication.Infrastructure.Email;
 using JobApplication.Infrastructure.Identity;
+using JobApplication.Infrastructure.Notifications;
 using JobApplication.Infrastructure.Options;
 using JobApplication.Infrastructure.Persistence;
 using JobApplication.Infrastructure.Repositories;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -42,6 +46,31 @@ namespace JobApplication.API
             builder.Services.AddMediatR(cfg =>
                 cfg.RegisterServicesFromAssemblyContaining<CloseJobCommand>());
             builder.Services.AddScoped<IJobRepository, JobRepository>();
+
+            // Auto-close expired jobs feature
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+
+            // Hangfire: client + storage
+            var hangfireConnectionString =
+                builder.Configuration.GetConnectionString("HangfireConnection")
+                    ?? throw new InvalidOperationException("Connection string "
+                    + "'HangfireConnection' not found.");
+
+            builder.Services.AddHangfire(config => config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(hangfireConnectionString, new Hangfire.SqlServer.SqlServerStorageOptions
+                {
+                    CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+                    QueuePollInterval = TimeSpan.Zero,
+                    UseRecommendedIsolationLevel = true,
+                    DisableGlobalLocks = true
+                }));
+
+            // Hangfire: server (executes background/recurring jobs)
+            builder.Services.AddHangfireServer();
 
             // Options (secrets come from User Secrets / environment variables, never from source control).
             builder.Services.AddOptions<JwtOptions>()
@@ -149,8 +178,22 @@ namespace JobApplication.API
             app.UseAuthentication();
             app.UseAuthorization();
 
+            // Hangfire Dashboard, at /hangfire. The default authorization filter only
+            // allows local requests; add a DashboardOptions.Authorization filter before
+            // exposing this dashboard outside of local development.
+            app.UseHangfireDashboard("/hangfire");
 
             app.MapControllers();
+
+            // Recurring job: close expired jobs every day at 02:00 (server local time).
+            // "0 2 * * *" = minute 0, hour 2, every day, every month, every weekday.
+            // Goes through IMediator -> CloseExpiredJobsCommand, same CQRS path as the
+            // rest of the Jobs feature, rather than a standalone service class.
+            RecurringJob.AddOrUpdate<IMediator>(
+                "close-expired-jobs",
+                mediator => mediator.Send(new CloseExpiredJobsCommand(), CancellationToken.None),
+                Cron.Daily(2),
+                new RecurringJobOptions { TimeZone = TimeZoneInfo.Local });
 
             app.Run();
         }

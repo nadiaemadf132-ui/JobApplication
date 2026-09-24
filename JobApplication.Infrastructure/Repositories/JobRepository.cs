@@ -42,5 +42,13 @@ namespace JobApplication.Infrastructure.Repositories
         {
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<Job>> GetExpiredOpenJobsAsync(DateTime asOfUtc)
+        {
+            return await _context.Jobs
+                .Include(j => j.Applications)
+                .Where(j => j.IsActive && j.ExpiryDate <= asOfUtc)
+                .ToListAsync();
+        }
     }
 }

@@ -10,6 +10,7 @@ namespace JobApplication.Domain.Enums
         UnderReview , 
         InterView , 
         Accepted , 
-        Rejected
+        Rejected ,
+        Closed
     }
 }
